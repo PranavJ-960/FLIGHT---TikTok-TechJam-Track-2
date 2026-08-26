@@ -1,0 +1,18 @@
+﻿# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Data (large, don't commit -- download separately per README)
+data/*.csv
+data/*.tar.gz
+data/KuaiRand-Pure/
+
+# Generated run artifacts
+logs/*.jsonl
+outputs/*.json
+
+# IDE
+.vscode/
+.DS_Store
