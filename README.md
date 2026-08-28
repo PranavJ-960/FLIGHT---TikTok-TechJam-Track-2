@@ -1,107 +1,80 @@
 # KuaiRand-Pure Autonomous ML Research Agent
 
-An end-to-end pipeline for TechJam Track 2: an agent that reproduces the
-official baseline, then autonomously iterates on features/hyperparameters to
-beat it, on the KuaiRand-Pure recommendation benchmark (NDCG@10 / Recall@50,
-click = positive).
+TechJam Track 2: an agent that reproduces the official baseline, then
+autonomously iterates to beat it, on KuaiRand-Pure within-user ranking.
 
-## 1. Setup
+## Task definition (fixed by the organizers — do not change)
+
+| | |
+|---|---|
+| Task | Within-user ranking — rank each user's own impressions in the eval set; not full-catalog retrieval |
+| Label | `long_view` (native column, 0/1) |
+| Metrics | `GAUC`, `nDCG@5`; **primary = mean of both** |
+| Split | train `20220408–20220421` / valid `20220422–20220428` / test `20220429–20220508` |
+| Convergence rule | ε = 0.002, N = 3 (stop when primary improves ≤ ε for N consecutive iterations) |
+
+See [`starter_kit/evaluate.py`](starter_kit/evaluate.py) — the scoring convention is fixed there, do not modify it.
+
+## Baseline to beat
+
+Official baseline is a from-scratch Factorization Machine (`starter_kit/baseline.py`, NumPy only).
+Verified against `starter_kit/baseline_scores.json` on 2026-08-28 — real data, seed 0:
+
+| | GAUC | nDCG@5 | primary |
+|---|---|---|---|
+| random (sanity check) | 0.4999 | 0.4514 | 0.4757 |
+| item popularity | 0.6308 | 0.5121 | 0.5715 |
+| **FM (official baseline)** | **0.6610** (published) / 0.6621 (ours) | **0.5282** / 0.5286 | **0.5946** / 0.5953 |
+
+Reproduce:
 
 ```bash
-pip install -r requirements.txt
+python3 starter_kit/baseline.py --data_dir ./data/KuaiRand-Pure/data --model fm
 ```
 
-## 2. Get the data
-
-Download and extract the real dataset:
+## Setup
 
 ```bash
+pip install numpy   # baseline itself needs nothing else
 wget https://zenodo.org/records/10439422/files/KuaiRand-Pure.tar.gz
-tar -xzvf KuaiRand-Pure.tar.gz -C ./data/
+tar -xzf KuaiRand-Pure.tar.gz -C ./data/
 ```
 
-This should leave you with `./data/KuaiRand-Pure/data/*.csv`.
-
-**Don't have the real data yet / want to smoke-test the code first?**
-Generate a small synthetic dataset with the *exact same file names and
-columns* (meaningless labels, real schema):
-
-```bash
-python generate_sample_data.py --out_dir ./data/KuaiRand-Pure/data
-```
-
-## 3. Run
-
-```bash
-python main.py --data_dir ./data/KuaiRand-Pure/data --max_seconds 1800
-```
-
-This will:
-1. Load the fixed train/val/test split (`data_loader.py`):
-   - `log_standard_4_08_to_4_21_pure.csv` → train
-   - `log_standard_4_22_to_5_08_pure.csv` first 50% (by time) → validation
-   - `log_standard_4_22_to_5_08_pure.csv` last 50% (by time) → **held-out test — touched only once, at the very end**
-2. Train the baseline-equivalent candidate.
-3. Run the autonomous agent loop (`agent_loop.py`) over a pool of
-   literature-informed feature/hyperparameter hypotheses, logging every
-   iteration to `logs/run_log.jsonl` (hypothesis, code diff, metrics,
-   error/recovery events — exactly what the challenge's Run-log
-   requirements ask for).
-4. Score the best candidate once on the test split and write
-   `outputs/results_summary.json` with the delta vs. baseline.
-
-## 4. Project layout
+## Project layout
 
 ```
-data_loader.py       # loads CSVs, builds the fixed train/val/test split
-features.py          # feature-engineering pipeline (the "engineer features" stage)
-model.py             # LightGBM training wrapper (the "train + tune" stage)
-evaluate.py          # NDCG@10 / Recall@50 + delta-vs-baseline scoring
-agent_loop.py         # the reflect+revise loop: propose -> train -> evaluate -> log
-main.py              # orchestrates the full run end-to-end
-generate_sample_data.py  # synthetic data generator for testing without the real download
-requirements.txt
-logs/run_log.jsonl        # per-iteration log (created on run)
-outputs/results_summary.json  # final results table (created on run)
+starter_kit/          # official reference — do not edit
+  data.py              # data loading, official split, feature encoding
+  evaluate.py           # GAUC / nDCG@5 scoring — the only source of truth for the metric
+  baseline.py            # random / item-popularity / FM baselines
+  submit.py                # generate + validate submission CSVs
+  ablation_features.py       # reproduces the organizers' "extra features = no gain" result
+  baseline_scores.json         # published scores, seed variance, convergence rule
+data/KuaiRand-Pure/            # real dataset (gitignored, download per Setup above)
 ```
 
-## 5. Where to extend
+## Known dead ends (already tested by the organizers — don't repeat)
 
-**Feature engineering** (`features.py`): add a new function with signature
-`df -> df` and reference it in a `Candidate.feature_pipeline` in
-`agent_loop.py`. Existing ones (engagement ratios, log-scaled activity
-counters, time-of-day) are simple examples to build on — cross features,
-target encoding, or embeddings all plug in the same way.
+- Adding CWM's 13 static feature domains: no gain (0.5940 vs 0.5950).
+- Bigger embedding dims (k = 8/16/32): no gain (~0.589 flat).
+- Bottleneck is not features or model capacity — `user_id × video_id` already captures
+  most learnable signal, and pure user-side features contribute nothing to a
+  within-user ranking (they're constant within a user's group).
 
-**Hypothesis generation** (`agent_loop.py: CANDIDATE_POOL`): this is
-currently a fixed, hand-written pool standing in for what an LLM-driven
-proposer would generate each round. To make hypothesis generation itself
-autonomous/LLM-driven, replace the static list with a function that:
-1. reads the previous iteration's metrics from `logs/run_log.jsonl`,
-2. prompts an LLM for the next candidate (feature pipeline + hyperparams)
-   and a stated hypothesis,
-3. returns a new `Candidate`.
-The rest of the loop (training, evaluation, robustness, logging,
-convergence check) needs no changes.
+## Where headroom likely is (organizers' ranked guess, untested by them)
 
-**Model** (`model.py`): swap LightGBM for another algorithm by implementing
-`train_model(train_df, val_df, feature_cols, ...) -> ModelWrapper` with the
-same `.predict()` interface.
+1. Pairwise/listwise loss instead of pointwise logloss — the metric is a ranking metric,
+   the current loss isn't.
+2. User history sequences (DIN/SIM-style) — completely unused currently.
+3. Multi-task with `is_click`/`is_like`/`is_follow`/etc. as auxiliary signals for `long_view`.
+4. Censored watch-time regression, à la [CWM](https://github.com/hyz20/CWM) — a research-depth
+   direction, not a starting point (CWM targets a different label/loss and needs torch 1.6.0).
+5. Other backbones (DeepFM/DCN/xDeepFM) — lower priority since capacity isn't the bottleneck.
 
-**Convergence rule**: `autonomous_agent_loop(..., epsilon=..., patience=...,
-max_seconds=...)` — set these to match whatever ε / N / compute budget the
-organizers publish in the official Starter Kit.
+## History
 
-## 6. Known limitations (fill in after a real run)
-
-- The `CANDIDATE_POOL` hypothesis set is hand-authored, not LLM-generated —
-  true autonomy requires wiring in an LLM proposer as described above.
-- No hyperparameter search beyond the 4 candidates in the pool; a real
-  submission should widen this (e.g. Optuna) within the compute budget.
-- Only `is_click` is modeled; KuaiRand's other 11 feedback signals
-  (like, follow, long_view, etc.) are not used for multi-task learning,
-  which the appendix flags as a legitimate way to fight label sparsity.
-- Token/GPU-hour accounting (for the Feasibility & Practicality score) is
-  not yet instrumented — add LLM call counting once an LLM proposer is wired
-  in, and wrap `train_model` with GPU-time measurement if training moves to
-  GPU-backed models.
+An earlier iteration of this repo (commit `ceae8ad`) built a from-scratch pipeline against
+NDCG@10/Recall@50 on `click`, which is **not** the actual scored metric — replaced 2026-08-28
+after cross-checking the official starter kit. See git history if any of that logic is useful
+for reference (feature ideas, agent-loop structure), but rebuild it against `starter_kit/`'s
+`long_view` / GAUC+nDCG@5 / date-based split before reusing.
