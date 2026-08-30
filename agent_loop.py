@@ -1,29 +1,25 @@
 """
 agent_loop.py
 -------------
-Implements the MLE iteration loop (read problem -> inspect data -> engineer
-features -> train+tune -> evaluate -> reflect+revise) as an autonomous,
-logged control loop, per the challenge's Task Requirements and Run-log
-requirements.
+The MLE iteration loop (read problem -> inspect data -> engineer features ->
+train+tune -> evaluate -> reflect+revise) as an autonomous, logged control
+loop, per the challenge's Task Requirements and Run-log requirements.
+
+Scoring is delegated entirely to official/evaluate.py (GAUC / nDCG@5 on
+`long_view`) and improvement is measured against the ORGANIZER-PUBLISHED FM
+baseline via scoring.py -- never against a baseline we trained ourselves.
 
 Design:
-- Each iteration is a `Candidate`: a named feature pipeline + a hyperparameter
-  dict. This is the unit the agent proposes, tests, and reflects on.
-- `CANDIDATE_POOL` encodes a small set of literature-informed hypotheses
-  (multi-task-style engagement features, wider trees, feature-fraction
-  regularization, etc.) that stand in for what an LLM would propose. Replace
-  `propose_next_candidate` with an actual LLM call to make hypothesis
-  generation itself model-driven -- the rest of the loop (robustness,
-  logging, convergence check) does not need to change.
+- Each iteration is a `Candidate` (candidate.py): a stated hypothesis plus the
+  code and/or LightGBM parameters that test it. Candidates can carry
+  agent-authored `fit`/`apply` source, so an iteration is a real code change.
+- `proposer.py` generates candidates -- LLM-driven when a key is present,
+  a fixed pool otherwise.
 - Robustness: every iteration is wrapped in try/except. A failed iteration is
-  logged with its error and the loop continues with the next candidate
-  instead of crashing (Task Requirement 3).
-- Convergence: stops when validation score_dataset has not improved by more
-  than `epsilon` over the last `patience` iterations, or when
-  `max_iterations` / `max_seconds` is hit -- whichever comes first.
-- Every iteration is appended as one JSON line to `logs/run_log.jsonl`,
-  containing: hypothesis, code diff (the candidate's config), metrics, and
-  any error/recovery event, as required by section "Run-log requirements".
+  logged with its error and recovery action; the loop continues.
+- Convergence: official rule -- stop when validation primary has not improved
+  by more than EPSILON over the last PATIENCE_N iterations, or at the
+  50-iteration cap, or at the 6h ceiling, whichever comes first.
 """
 
 from __future__ import annotations
@@ -31,192 +27,248 @@ from __future__ import annotations
 import json
 import time
 import traceback
-from dataclasses import dataclass, field, asdict
-from typing import Callable
 
 import pandas as pd
 
-from evaluate import evaluate_ranking, compute_delta_vs_baseline
+from official.data import LABEL as LABEL_COL
+from official.evaluate import evaluate
 from features import (
-    DEFAULT_FEATURE_PIPELINE,
     add_engagement_ratio_features,
     add_user_activity_features,
     add_time_features,
-    build_features,
 )
-from model import train_model, DEFAULT_PARAMS
+from candidate import Candidate, build_candidate_frames
+from model import train_model
+import scoring
 
 
-@dataclass
-class Candidate:
-    name: str
-    hypothesis: str
-    feature_pipeline: list[Callable] = field(default_factory=lambda: list(DEFAULT_FEATURE_PIPELINE))
-    param_overrides: dict = field(default_factory=dict)
+# --- What the organizers already tested, so the agent does not redo it ----
+# Straight from official/STARTER_KIT_README.md. Fed to the LLM proposer.
+KNOWN_DEAD_ENDS = [
+    "Adding more static feature fields: the organizers wired in CWM's full 13 "
+    "fields and got primary 0.5940 vs 0.5950 for the default 5 fields. No gain.",
+    "More model capacity: embedding k=8/16/32 gave 0.5895/0.5902/0.5887. Flat. "
+    "The bottleneck is NOT features or capacity -- user_id x video_id already "
+    "absorbs most of the learnable signal.",
+    "Pure user-side features cannot help on their own: ranking is WITHIN a "
+    "user, so any term constant across that user's rows cannot reorder them. "
+    "User features only pay off when crossed with item-side signal.",
+]
+
+# Organizer-ranked unexplored directions, most promising first.
+OPEN_DIRECTIONS = [
+    "Change the loss. Baseline is pointwise logloss but GAUC/nDCG are ranking "
+    "metrics. Pairwise (BPR) or listwise (softmax over the user's impressions) "
+    "aligns the objective with the metric. Organizers rate this most likely. "
+    "In this harness: param_overrides {'objective': 'lambdarank'}.",
+    "User behaviour sequences. Entirely unused today; DIN/SIM-style interest "
+    "modelling over each user's history is a blank field.",
+    "Multi-task. is_click / is_like / is_follow / is_comment / is_forward / "
+    "play_time_ms as auxiliary heads on the long_view main task.",
+    "Watch-time modelling. Censored regression on play_time (CWM's approach) -- "
+    "watch time is truncated by video duration, so use a one-sided loss.",
+    "Swap the model (DeepFM / DCN / xDeepFM). Deprioritised: capacity is not "
+    "the bottleneck.",
+    "Time features and train/test distribution drift (hourmin, date).",
+    "Unbiased validation: log_random_4_22_to_5_08_pure.csv is a randomised-"
+    "exposure log usable as a bias-free validation set.",
+]
 
 
-# A small, literature-informed pool of hypotheses standing in for what an
-# LLM-driven proposer would generate each round (see module docstring).
+# Seed candidates. With an LLM proposer only the first is used, as a scored
+# reference point; without one, the loop walks the whole list.
 CANDIDATE_POOL: list[Candidate] = [
     Candidate(
-        name="baseline",
-        hypothesis="Establish the official-baseline-equivalent pipeline: raw "
-                   "numeric + categorical features, default LightGBM params.",
+        name="starter",
+        hypothesis="Stand up a working end-to-end pipeline on the official "
+                   "split and label (long_view), scored by official/evaluate.py.",
         feature_pipeline=[add_time_features],
         param_overrides={},
     ),
     Candidate(
         name="engagement_ratios",
-        hypothesis="CTR correlates with prior engagement rates (play_rate, "
-                   "completion_rate) more than raw counts, per standard CTR "
-                   "feature-engineering practice (crossing engagement signals). "
-                   "Add ratio features on top of the baseline.",
+        hypothesis="Item-side engagement priors (play_rate, completion_rate) "
+                   "vary within a user's impression list, so unlike user-side "
+                   "counters they CAN reorder it.",
         feature_pipeline=[add_time_features, add_engagement_ratio_features],
         param_overrides={},
     ),
     Candidate(
-        name="engagement_plus_user_activity",
-        hypothesis="Log-scaling heavy-tailed user activity counters "
-                   "(follow/fans/friend counts, register_days) should help "
-                   "the tree model split more evenly across active/inactive "
-                   "users, on top of engagement ratios.",
-        feature_pipeline=[add_time_features, add_engagement_ratio_features, add_user_activity_features],
-        param_overrides={},
+        name="lambdarank",
+        hypothesis="GAUC and nDCG are ranking metrics but the model trains "
+                   "pointwise logloss. Switching to a listwise objective "
+                   "grouped per user aligns training with evaluation.",
+        feature_pipeline=[add_time_features, add_engagement_ratio_features],
+        param_overrides={"objective": "lambdarank"},
     ),
     Candidate(
         name="deeper_trees_more_regularization",
-        hypothesis="With the fuller feature set, allow more model capacity "
-                   "(num_leaves) but add feature_fraction regularization to "
-                   "avoid overfitting to any single engineered feature.",
-        feature_pipeline=[add_time_features, add_engagement_ratio_features, add_user_activity_features],
-        param_overrides={"num_leaves": 127, "feature_fraction": 0.7, "learning_rate": 0.03},
+        hypothesis="More capacity with feature_fraction regularization, to "
+                   "check whether the organizers' flat-capacity finding for FM "
+                   "also holds for GBDTs.",
+        feature_pipeline=[add_time_features, add_engagement_ratio_features,
+                          add_user_activity_features],
+        param_overrides={"num_leaves": 127, "feature_fraction": 0.7,
+                         "learning_rate": 0.03},
     ),
 ]
 
 
-def run_iteration(
-    candidate: Candidate,
-    train_raw: pd.DataFrame,
-    val_raw: pd.DataFrame,
-    label_col: str = "is_click",
-) -> dict:
-    """Run one full iteration: build features, train, evaluate. Returns a
-    result dict; raises on unrecoverable errors (caller handles logging)."""
-    train_feat, feature_cols = build_features(train_raw, candidate.feature_pipeline)
-    val_feat, _ = build_features(val_raw, candidate.feature_pipeline)
-
-    model = train_model(
-        train_feat, val_feat, feature_cols,
-        label_col=label_col,
-        params=candidate.param_overrides,
+def score_frame(df: pd.DataFrame, preds) -> dict:
+    """Score a frame with the OFFICIAL metric. Never reimplement this."""
+    return evaluate(
+        df["user_id"].tolist(),
+        df[LABEL_COL].astype(int).tolist(),
+        list(preds),
     )
 
-    val_feat = val_feat.copy()
-    val_feat["pred"] = model.predict(val_feat)
-    metrics = evaluate_ranking(val_feat, score_col="pred", label_col=label_col)
 
-    return {
-        "feature_cols": feature_cols,
-        "metrics": metrics,
-        "model": model,
-    }
+def run_iteration(candidate: Candidate, train_raw, val_raw,
+                  label_col: str = LABEL_COL) -> dict:
+    """One full iteration: build features (incl. agent code), train, evaluate."""
+    train_feat, (val_feat,), feature_cols = build_candidate_frames(
+        candidate, train_raw, val_raw
+    )
+    if not feature_cols:
+        raise ValueError("candidate produced no feature columns")
+
+    model = train_model(train_feat, val_feat, feature_cols,
+                        label_col=label_col, params=candidate.param_overrides)
+
+    preds = model.predict(val_feat)
+    metrics = score_frame(val_feat, preds)
+    return {"feature_cols": feature_cols, "metrics": metrics, "model": model}
 
 
 class RunLogger:
-    """Writes one JSON line per iteration to logs/run_log.jsonl, matching the
-    challenge's required fields: hypothesis, code diff, metrics, error/recovery."""
+    """One JSON line per iteration: hypothesis, code diff, metrics,
+    error/recovery -- the challenge's Run-log requirements."""
 
     def __init__(self, log_path: str):
         self.log_path = log_path
-        self._n_manual_interventions = 0  # this script runs fully autonomously -> 0
+        self.manual_interventions = 0   # fully autonomous run -> 0
+        self.usage = {"input_tokens": 0, "output_tokens": 0}
 
     def log(self, record: dict):
         record["timestamp"] = time.time()
-        with open(self.log_path, "a") as f:
+        with open(self.log_path, "a", encoding="utf-8") as f:
             f.write(json.dumps(record, default=str) + "\n")
 
     def summary(self):
-        return {"manual_interventions": self._n_manual_interventions}
+        return {
+            "manual_interventions": self.manual_interventions,
+            "llm_input_tokens": self.usage["input_tokens"],
+            "llm_output_tokens": self.usage["output_tokens"],
+            "llm_total_tokens": self.usage["input_tokens"] + self.usage["output_tokens"],
+        }
 
 
 def autonomous_agent_loop(
-    train_raw: pd.DataFrame,
-    val_raw: pd.DataFrame,
-    baseline_metrics: dict,
+    train_raw,
+    val_raw,
     log_path: str = "logs/run_log.jsonl",
-    candidates: list[Candidate] | None = None,
-    epsilon: float = 0.001,
-    patience: int = 2,
-    max_seconds: float = 1800.0,
+    proposer=None,
+    epsilon: float = scoring.EPSILON,                # 0.002
+    patience: int = scoring.PATIENCE_N,              # 3
+    max_iterations: int = scoring.MAX_ITERATIONS,    # 50
+    max_seconds: float = scoring.MAX_SECONDS,        # 6h
 ) -> dict:
     """
-    Runs the reflect+revise loop over `candidates` (default: CANDIDATE_POOL),
-    logging every iteration, and stops at convergence (score_dataset hasn't
-    improved by > epsilon over the last `patience` iterations) or when
-    max_seconds is exceeded.
-
-    Returns the best candidate's result plus the full history.
+    Reflect+revise loop. Selection and convergence both track validation
+    PRIMARY (mean of GAUC and nDCG@5) -- the official ranking quantity.
+    Returns the validation-best result plus full history.
     """
-    candidates = candidates if candidates is not None else CANDIDATE_POOL
-    logger = RunLogger(log_path)
+    if proposer is None:
+        from proposer import make_proposer
+        proposer = make_proposer(seed_pool=CANDIDATE_POOL)
 
-    history = []
-    best_result = None
-    best_score = float("-inf")
+    logger = RunLogger(log_path)
+    columns = [c for c in train_raw.columns]
+
+    history, best_result = [], None
+    best_primary = float("-inf")
     no_improve_streak = 0
     start = time.time()
 
-    for i, candidate in enumerate(candidates):
+    for i in range(max_iterations):
         if time.time() - start > max_seconds:
-            logger.log({"event": "stop", "reason": "max_seconds_budget_reached", "iteration": i})
+            logger.log({"event": "stop", "reason": "max_seconds_budget_reached",
+                        "iteration": i})
+            break
+
+        # --- propose -------------------------------------------------------
+        try:
+            candidate = proposer.propose(history, columns, i)
+        except Exception as exc:
+            logger.log({"iteration": i, "status": "error", "stage": "propose",
+                        "error": str(exc), "traceback": traceback.format_exc(),
+                        "recovery_action": "abort_loop_keep_best"})
+            print(f"  [{i}] proposer failed ({exc}) -- stopping with best so far")
+            break
+
+        if candidate is None:
+            logger.log({"event": "stop", "reason": "proposer_exhausted",
+                        "iteration": i})
             break
 
         record = {
             "iteration": i,
             "candidate_name": candidate.name,
             "hypothesis": candidate.hypothesis,
-            "code_diff": {
-                "feature_pipeline": [fn.__name__ for fn in candidate.feature_pipeline],
-                "param_overrides": candidate.param_overrides,
-            },
+            "code_diff": candidate.code_diff(),
         }
 
+        # --- test ----------------------------------------------------------
         try:
             result = run_iteration(candidate, train_raw, val_raw)
-            deltas = compute_delta_vs_baseline(result["metrics"], baseline_metrics)
-            score = deltas["score_dataset"]
+            metrics = result["metrics"]
+            deltas = scoring.delta_vs_official(metrics, split="valid")
 
-            record["metrics"] = result["metrics"]
-            record["delta_vs_baseline"] = deltas
+            record["metrics"] = metrics
+            record["delta_vs_official_baseline"] = deltas
             record["status"] = "success"
             history.append(record)
             logger.log(record)
+            print(f"  [{i}] {candidate.name}: {scoring.summarize(metrics, 'valid')}")
 
-            if score > best_score + epsilon:
-                best_score = score
-                best_result = {**result, "candidate": candidate, "delta_vs_baseline": deltas}
-                no_improve_streak = 0
-            else:
-                no_improve_streak += 1
+            # Two SEPARATE questions, and conflating them loses good models:
+            #   selection  -- is this the validation-best so far? (strict >)
+            #                 the spec submits "the validation-best checkpoint"
+            #   convergence-- did it improve by more than epsilon? (the official
+            #                 ε=0.002 / N=3 plateau rule)
+            # A +0.001 gain is a better checkpoint AND a converging run.
+            improved_materially = metrics["primary"] > best_primary + epsilon
+
+            if metrics["primary"] > best_primary:
+                best_primary = metrics["primary"]
+                best_result = {**result, "candidate": candidate,
+                               "delta_vs_official_baseline": deltas}
+
+            no_improve_streak = 0 if improved_materially else no_improve_streak + 1
 
             if no_improve_streak >= patience:
-                logger.log({
-                    "event": "stop", "reason": "converged",
-                    "iteration": i, "no_improve_streak": no_improve_streak,
-                })
+                logger.log({"event": "stop", "reason": "converged", "iteration": i,
+                            "epsilon": epsilon, "N": patience,
+                            "no_improve_streak": no_improve_streak})
+                print(f"  converged: no >{epsilon} gain in {patience} "
+                      f"consecutive iterations")
                 break
 
-        except Exception as exc:  # noqa: BLE001 - deliberately broad: robustness requirement
+        except Exception as exc:  # noqa: BLE001 -- broad on purpose: robustness requirement
             record["status"] = "error"
             record["error"] = str(exc)
             record["traceback"] = traceback.format_exc()
-            record["recovery_action"] = "skip_candidate_continue_loop"
+            record["recovery_action"] = "log_error_and_propose_next_candidate"
             history.append(record)
             logger.log(record)
+            print(f"  [{i}] {candidate.name}: FAILED ({str(exc)[:120]}) -- recovering")
             continue
+        finally:
+            logger.usage = getattr(proposer, "usage", logger.usage)
 
     return {
         "best_result": best_result,
         "history": history,
-        "run_summary": logger.summary(),
+        "run_summary": {**logger.summary(), "proposer": getattr(proposer, "source", "?")},
+        "elapsed_seconds": time.time() - start,
     }
