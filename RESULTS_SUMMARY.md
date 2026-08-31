@@ -75,8 +75,21 @@ this reasoning are logged and disclosed rather than silently discarded).
 **Separately disclosed (not part of the scored run's resource cost):** the LLM-token cost of
 the interactive development session that designed the feature set, the orchestrator itself,
 and explored five neural-net architectures is the cost of *building the agent*, not of the
-agent's own scored run — not queryable from inside this session's own tool context; pull the
-actual figure from the Claude Code session's usage/cost display for the Devpost submission.
+agent's own scored run. Measured directly from the local Claude Code session transcript:
+
+| | Tokens |
+|---|---|
+| Fresh input tokens | 844 |
+| Cache-creation input tokens | 1,285,460 |
+| Cache-read input tokens | 97,688,558 |
+| Output tokens | 475,274 |
+| **Total (input + output)** | **≈99,450,136** |
+
+The large cache-read share reflects repeated context re-processing across a long multi-turn
+interactive session (billed far cheaper than fresh tokens, but still real tokens processed).
+This number describes agent *development*, not the scored run — the orchestrator's own loop
+used 0 LLM tokens, as reported above.
+
 The neural-net exploration (FM/DCN/DeepFM/BST/MMoE, `train_dcn_pairwise.py`, `train_cwm.py`)
 used Apple Silicon MPS for roughly 25-30 minutes of cumulative GPU wall-clock across all
 variants combined — informative for Innovation/Problem-Insight credit, irrelevant to

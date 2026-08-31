@@ -192,10 +192,10 @@ disclosed here rather than presented as if the orchestrator found everything fro
 | LLM calls inside the loop | 0 (pure programmatic weighted-sampling search, no LLM call in the proposer/decide loop itself) |
 | Errors | 0 |
 
-LLM token consumption is the cost of the *agent development session* that designed this
-pipeline (feature engineering, architecture choices, the orchestrator itself) — not queryable
-from inside the agent's own tool-use context; pull it from the Claude Code session's own usage/
-cost display when compiling the Devpost submission.
+LLM token consumption (≈99.45M input+output, mostly cache reads across a long multi-turn
+session — see `RESULTS_SUMMARY.md` for the exact breakdown) is the cost of the *agent
+development session* that designed this pipeline (feature engineering, architecture choices,
+the orchestrator itself), not of the scored run itself, which used 0.
 
 ## Known dead ends (from the organizers' own ablation, reproduced)
 
