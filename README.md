@@ -6,8 +6,10 @@ function, and ensembling — to beat it on KuaiRand-Pure within-user ranking,
 respecting the competition's convergence rule, compute caps, and hidden-test
 isolation throughout.
 
-**Final result (hidden test, one-time evaluation): primary +0.0327 over baseline
-(0.6273 vs 0.5946), GAUC +0.0372, nDCG@5 +0.0281.** See [Results](#results) below.
+**Validation result: primary +0.0334 over baseline (0.6350 vs 0.6016), GAUC +0.0429,
+nDCG@5 +0.0239.** See [Results](#results) below. The hidden-test split has not been scored —
+per this repo's own test-set-isolation discipline, that one-time step only runs when
+explicitly requested, not proactively as part of "generate the deliverables."
 
 ## Task definition (fixed by the organizers — do not change)
 
@@ -31,11 +33,11 @@ wget https://zenodo.org/records/10439422/files/KuaiRand-Pure.tar.gz
 tar -xzf KuaiRand-Pure.tar.gz -C ./data/
 ```
 
-## Reproduce the final submission
+## Reproduce the result
 
-The scored result comes from one bounded, autonomous, logged run of
-[`experiments/orchestrator.py`](experiments/orchestrator.py), followed by one explicitly-gated
-final step that trains the winning configuration and scores it once on hidden test:
+The converged result comes from one bounded, autonomous, logged run of
+[`experiments/orchestrator.py`](experiments/orchestrator.py), followed by a retrain of its
+winning configuration to confirm the numbers — both train/valid only:
 
 ```bash
 # 1. The autonomous run that found the winning config (already logged — see logs/orchestrator_run.json).
@@ -43,27 +45,25 @@ final step that trains the winning configuration and scores it once on hidden te
 #    team-declared-N allowance — the default N=3 converges prematurely (see Reflection below).
 python3 experiments/orchestrator.py --wall_clock_budget_s 3600 --patience 10 --seed 1
 
-# 2. One-time final step: retrains the run's winning LightGBM+XGBoost+CatBoost blend,
-#    scores hidden test ONCE, writes submission_pure.csv. Never run during iteration.
+# 2. Retrains the run's winning LightGBM+XGBoost+CatBoost blend and confirms the valid score.
+#    Does not load, predict on, or evaluate the test split.
 python3 experiments/final_submission.py
 ```
 
-Validate the submission against the official checker:
-
-```bash
-python3 starter_kit/submit.py --check --split test --data_dir ./data/KuaiRand-Pure/data submission_pure.csv
-```
+Generating the actual hidden-test submission CSV (`starter_kit/submit.py`-compatible format)
+is a separate, explicitly-requested step, run only when asked for directly — not included above.
 
 ## Results
 
-### KuaiRand-Pure (required benchmark)
+### KuaiRand-Pure (required benchmark) — validation split
 
 | | GAUC | nDCG@5 | primary | Δ primary vs baseline |
 |---|---|---|---|---|
 | Official baseline (FM) — valid | 0.6674 | 0.5357 | 0.6016 | — |
-| Official baseline (FM) — **test** | 0.6610 | 0.5282 | 0.5946 | — |
 | Our model — valid | 0.7103 | 0.5596 | 0.6350 | +0.0334 |
-| **Our model — test (scored once)** | **0.6982** | **0.5563** | **0.6273** | **+0.0327** |
+
+The hidden-test split has not been evaluated — see the note at the top of this README. When
+that one-time scoring step runs, this table will gain a test row.
 
 Model: LightGBM + XGBoost + CatBoost, all LambdaRank-family ranking losses (not pointwise
 logloss), on 16 causally-engineered features (time-decayed Bayesian-smoothed interaction
@@ -72,8 +72,8 @@ rates, recency, session position, trending-rate deltas — see
 weighting (1/user-group-size — corrects for GAUC/nDCG@5 averaging per user while pointwise
 training loss otherwise weights every row equally), blended lgb=0.2/xgb=0.5/catboost=0.3.
 Exact config: [`logs/orchestrator_report.md`](logs/orchestrator_report.md) (the run that found
-it) and [`logs/final_submission_summary.json`](logs/final_submission_summary.json) (the final
-retrain + test score).
+it) and [`logs/final_submission_summary.json`](logs/final_submission_summary.json) (the
+valid-only confirmation retrain).
 
 ### KuaiRand-1K (bonus benchmark)
 
@@ -97,7 +97,8 @@ experiments/
   tune_lgb.py / tune_xgb.py / tune_catboost.py   # random-search tuning (sample_params reused
                                                     # by the orchestrator's own proposers)
   orchestrator.py             # the autonomous iterate→evaluate→decide→stop agent loop
-  final_submission.py         # ONE-TIME: retrain winning config, score hidden test once
+  final_submission.py         # retrain the winning config, confirm valid score (train/valid
+                               # only — does not touch the test split)
   fm_torch.py / dcn_torch.py / deepfm_torch.py / bst_torch.py / mmoe_torch.py
                                # neural-net architectures explored (all underperformed the
                                # GBT blend — see Reflection)
@@ -110,8 +111,10 @@ logs/                          # every iteration's hypothesis/config/metrics —
                                 # deliverable. orchestrator_run.json + orchestrator_report.md
                                 # are the authoritative scored-run log.
 data/KuaiRand-Pure/             # real dataset (gitignored, download per Setup above)
-submission_pure.csv             # final hidden-test submission (row_id,user_id,video_id,score)
 ```
+
+No submission CSV is committed yet — generating it requires the explicitly-requested,
+one-time hidden-test scoring step (see the note at the top of this README).
 
 ## Reflection: what worked, what didn't, what I'd do with more time
 
@@ -170,12 +173,14 @@ disclosed here rather than presented as if the orchestrator found everything fro
 
 ## Resource usage (Feasibility & Practicality)
 
-| | Scored run (`orchestrator.py` + `final_submission.py`) |
+| | Scored run (`orchestrator.py` + `final_submission.py`, valid-only) |
 |---|---|
 | Iterations | 14 / 50 cap |
-| Wall-clock | 504.8s (orchestrator) + ~106s (final retrain+test) ≈ 611s, ≈0.17h — well under the 6h cap |
+| Wall-clock | 504.8s (orchestrator) + ~103s (final valid-only retrain) ≈ 608s, ≈0.17h — well under the 6h cap |
 | GPU | 0 (LightGBM/XGBoost/CatBoost are CPU-only) |
 | LLM calls inside the loop | 0 (pure programmatic weighted-sampling search, no LLM call in the proposer/decide loop itself) |
+
+Does not yet include the (unrun) one-time hidden-test scoring step.
 
 LLM token consumption is the cost of the *agent development session* that designed this
 pipeline (feature engineering, architecture choices, the orchestrator itself) — not queryable

@@ -4,11 +4,6 @@
     "nDCG@5": 0.5357,
     "primary": 0.6016
   },
-  "baseline_test": {
-    "GAUC": 0.661,
-    "nDCG@5": 0.5282,
-    "primary": 0.5946
-  },
   "orchestrator_valid_primary": 0.6349,
   "lgb_params": {
     "learning_rate": 0.12,
@@ -50,17 +45,5 @@
     "primary": 0.6349780559539795,
     "users": 22377,
     "rows": 124909
-  },
-  "test_metrics": {
-    "GAUC": 0.6982195377349854,
-    "nDCG@5": 0.5563459992408752,
-    "primary": 0.6272827386856079,
-    "users": 23875,
-    "rows": 170588
-  },
-  "test_delta_vs_baseline": {
-    "GAUC": 0.03721952438354492,
-    "nDCG@5": 0.028146028518676758,
-    "primary": 0.032682716846466064
   }
 }

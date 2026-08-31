@@ -1,26 +1,32 @@
-# Final Submission & Results Summary
+# Results Summary
 
-## Submission files
+## Status: no submission CSV generated yet — test split has not been touched
 
-- **`submission_pure.csv`** — required benchmark (KuaiRand-Pure), 170,588 rows, format
-  validated against the official `starter_kit/submit.py --check`.
-- Model/checkpoint config: [`logs/final_submission_summary.json`](logs/final_submission_summary.json)
+Per [[feedback-test-set-isolation]], the one-time hidden-test scoring run needed to produce
+`submission_pure.csv` and a test-set results row must be a **distinct, explicitly-requested
+action**, taken only when asked for directly — not something run proactively as part of
+"generate the deliverables." An earlier version of this file reported test-set numbers from a
+test evaluation that was run without that explicit request; it has been reverted
+(`experiments/final_submission.py` no longer loads, predicts on, or evaluates the test split
+at all) and the resulting CSV/numbers have been removed. Everything below is **valid-split
+only**.
+
+- Model/checkpoint config (valid-only): [`logs/final_submission_summary.json`](logs/final_submission_summary.json)
   (exact hyperparameters for all three models + blend weights).
-- KuaiRand-1K bonus benchmark run (not submitted as a CSV — reported for bonus credit only):
-  [`logs/iteration_U_kuairand1k.json`](logs/iteration_U_kuairand1k.json).
+- KuaiRand-1K bonus benchmark run (valid only): [`logs/iteration_U_kuairand1k.json`](logs/iteration_U_kuairand1k.json).
 
-## Results table (per judging formula: `delta(m) = score_agent(m) − score_baseline(m)`)
+## Results table — validation split only
 
-### KuaiRand-Pure — required, scored once on hidden test
+### KuaiRand-Pure — required benchmark
 
-| Metric | Baseline (official) | Agent | Δ (absolute) |
+| Metric | Baseline (official, valid) | Agent (valid) | Δ (absolute) |
 |---|---|---|---|
-| GAUC | 0.6610 | 0.6982 | **+0.0372** |
-| nDCG@5 | 0.5282 | 0.5563 | **+0.0281** |
-| **primary (mean)** | 0.5946 | 0.6273 | **+0.0327** |
+| GAUC | 0.6674 | 0.7103 | **+0.0429** |
+| nDCG@5 | 0.5357 | 0.5596 | **+0.0239** |
+| **primary (mean)** | 0.6016 | 0.6350 | **+0.0334** |
 
-Validation (for reference — not the scored number, but confirms no valid→test overfitting):
-GAUC 0.7103, nDCG@5 0.5596, primary 0.6350 (+0.0334 vs valid baseline 0.6016).
+No test-set row is reported here. When you're ready for the one-time hidden-test scoring
+step, say so explicitly and I'll run it as its own clearly-labeled action.
 
 ### KuaiRand-1K — bonus, valid only (test not scored/submitted for this benchmark)
 
@@ -33,7 +39,7 @@ GAUC 0.7103, nDCG@5 0.5596, primary 0.6350 (+0.0334 vs valid baseline 0.6016).
 KuaiRand-27K attempted (download reached ~45% before being deprioritized for time) — not
 completed, no score to report.
 
-## Model configuration (the winning, submitted config)
+## Model configuration (the winning config, valid-only so far)
 
 Blend of three gradient-boosted rankers on 16 causally-engineered features
 (`experiments/data_causal.py`), each trained with per-user row weighting
@@ -47,22 +53,26 @@ Blend of three gradient-boosted rankers on 16 causally-engineered features
 
 Full params: [`logs/final_submission_summary.json`](logs/final_submission_summary.json).
 
-## Resource usage required to reach the converged result
+## Resource usage for the converged (validation) result
 
 Per section 2.6/2.9.1: the converged result is scored from **one run**
-(`experiments/orchestrator.py`), stopped by its own declared convergence rule, followed by
-one explicitly-gated final retrain+test-score step (`experiments/final_submission.py`).
-Reporting resource usage for exactly that pair, as required:
+(`experiments/orchestrator.py`), stopped by its own declared convergence rule, followed by a
+retrain of the winning config to confirm it (`experiments/final_submission.py`, valid-only —
+no test-scoring step included). Reporting resource usage for exactly that pair:
 
 | | Value |
 |---|---|
 | **Iterations used** | 14 / 50 cap |
 | **Agent wall-clock (orchestrator run)** | 504.8s |
-| **Agent wall-clock (final retrain + one-time test scoring)** | ~106s |
-| **Total wall-clock for the scored result** | **~611s (≈0.17h)** — 0.17% of the 6h cap |
-| **GPU-hours** | **0** — LightGBM/XGBoost/CatBoost are CPU-only; the scored pipeline never touches a GPU |
+| **Agent wall-clock (final retrain, valid-only confirmation)** | ~103s |
+| **Total wall-clock so far** | **~608s (≈0.17h)** — 0.17% of the 6h cap |
+| **GPU-hours** | **0** — LightGBM/XGBoost/CatBoost are CPU-only |
 | **LLM tokens used inside the loop** | **0** — the orchestrator's iterate/evaluate/decide/stop logic is pure programmatic weighted-sampling, no LLM call in the scored loop itself |
 | **Errors encountered / recovered** | 0 |
+
+This does not yet include the one-time hidden-test scoring step (not run — see Status above).
+That step is cheap (~2 min, the same three models re-predicting on test features) and would
+be added to this total once explicitly requested.
 
 **Convergence rule actually used:** ε=0.002 (organizer default), **N=10** (team-declared,
 fixed before this run — the organizer default N=3 was tried twice first and converged

@@ -1,22 +1,20 @@
-"""ONE-TIME final submission step for KuaiRand-Pure. Retrains the exact winning
-configuration found by the compliant autonomous orchestrator run
-(logs/orchestrator_run.json / logs/orchestrator_report.md: 14 iterations, 504.8s,
-converged, best valid primary 0.6349 via a blend at iteration 10) — LightGBM
-(iteration 8's params), XGBoost (iteration 4's params), CatBoost (iteration 3's
-params), blended lgb=0.2/xgb=0.5/catboost=0.3 (iteration 10's weights) — on the
-causal features (smooth=5.0, recent_window=20, the run's untouched initial
-"active" dataset; no feature-variant iteration won and switched it).
+"""Retrains the exact winning configuration found by the compliant autonomous
+orchestrator run (logs/orchestrator_run.json / logs/orchestrator_report.md: 14
+iterations, 504.8s, converged, best valid primary 0.6349 via a blend at
+iteration 10) — LightGBM (iteration 8's params), XGBoost (iteration 4's
+params), CatBoost (iteration 3's params), blended lgb=0.2/xgb=0.5/catboost=0.3
+(iteration 10's weights) — on the causal features (smooth=5.0, recent_window=20,
+the run's untouched initial "active" dataset; no feature-variant iteration won
+and switched it).
 
-This is the single, explicitly-gated place in the whole repo that touches the
-test split: it trains only on train (+ uses valid for early stopping, exactly as
-every iteration script already did), then scores the test split ONCE, purely to
-(a) write the submission CSV and (b) report test metrics for our own results
-summary — it is never used to pick a model, tune a hyperparameter, or influence
-anything upstream. See [[feedback-test-set-isolation]]: this is the one
-explicit, clearly-labeled final step that rule reserves for exactly this purpose.
+Train/valid only — the test split is NOT loaded, predicted on, or evaluated
+here. Per [[feedback-test-set-isolation]], a one-time hidden-test scoring run
+(needed eventually to produce the actual submission CSV and test-set results)
+must be a distinct, explicitly-requested action taken only when the user asks
+for it directly — not something this script (or any other) does on its own
+initiative, even for a "final" or "required" deliverable.
 """
 import argparse
-import csv
 import json
 import os
 import sys
@@ -30,11 +28,9 @@ import pandas as pd
 import xgboost as xgb
 from catboost import CatBoost, Pool
 
-from starter_kit.data import load as official_load
 from starter_kit.evaluate import evaluate
 from experiments.data_causal import encode_causal, CAT_FIELDS, NUMERIC_FIELDS
 
-BASELINE_TEST = {'GAUC': 0.6610, 'nDCG@5': 0.5282, 'primary': 0.5946}   # starter_kit/baseline_scores.json, fm_official.test
 BASELINE_VALID = {'GAUC': 0.6674, 'nDCG@5': 0.5357, 'primary': 0.6016}  # fm_official.valid
 ORCHESTRATOR_VALID_PRIMARY = 0.6349   # logs/orchestrator_report.md, iteration 10
 
@@ -70,14 +66,13 @@ def norm(s):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--data_dir', default='./data/KuaiRand-Pure/data')
-    ap.add_argument('--out_csv', default='submission_pure.csv')
     ap.add_argument('--out_dir', default='outputs')
     ap.add_argument('--seed', type=int, default=0)
     a = ap.parse_args()
     os.makedirs('logs', exist_ok=True)
     os.makedirs(a.out_dir, exist_ok=True)
 
-    print("=== building causal features (train / valid / test) ===")
+    print("=== building causal features (train / valid only) ===")
     t0 = time.time()
     enc, feature_names = encode_causal(a.data_dir)
     cat_idx = [feature_names.index(c) for c in (['dow'] + CAT_FIELDS)]
@@ -85,8 +80,6 @@ def main():
 
     Xtr, ytr, utr = build_matrix(enc, 'train', feature_names)
     Xva, yva, uva = build_matrix(enc, 'valid', feature_names)
-    Xte, yte, ute = build_matrix(enc, 'test', feature_names)   # test labels loaded ONLY for this
-    # script's own one-time reporting below; never used for training/selection.
 
     order_tr = np.argsort(utr, kind='stable')
     order_va = np.argsort(uva, kind='stable')
@@ -113,7 +106,6 @@ def main():
                            callbacks=[lgb.early_stopping(30, verbose=False), lgb.log_evaluation(0)])
     print(f"  trained {lgb_model.best_iteration} rounds in {time.time()-t0:.1f}s")
     lgb_va = lgb_model.predict(Xva, num_iteration=lgb_model.best_iteration)
-    lgb_te = lgb_model.predict(Xte, num_iteration=lgb_model.best_iteration)
 
     # ---------------- XGBoost ----------------
     print("\n=== training XGBoost (orchestrator iteration 4's config) ===")
@@ -123,20 +115,17 @@ def main():
     xvalid = xgb.DMatrix(Xva_s, label=yva_s, feature_names=feature_names)
     xvalid.set_group(group_va)
     xvalid_full = xgb.DMatrix(Xva, feature_names=feature_names)
-    xtest_full = xgb.DMatrix(Xte, feature_names=feature_names)
     run_params_x = dict(XGB_PARAMS, objective='rank:ndcg', eval_metric='ndcg@5', seed=a.seed, verbosity=0)
     t0 = time.time()
     xgb_model = xgb.train(run_params_x, xtrain, num_boost_round=1000, evals=[(xvalid, 'valid')],
                            early_stopping_rounds=30, verbose_eval=False)
     print(f"  trained {xgb_model.best_iteration} rounds in {time.time()-t0:.1f}s")
     xgb_va = xgb_model.predict(xvalid_full, iteration_range=(0, xgb_model.best_iteration + 1))
-    xgb_te = xgb_model.predict(xtest_full, iteration_range=(0, xgb_model.best_iteration + 1))
 
     # ---------------- CatBoost ----------------
     print("\n=== training CatBoost (orchestrator iteration 3's config) ===")
     Ctr, cytr, cutr = build_frame(enc, 'train')
     Cva, cyva, cuva = build_frame(enc, 'valid')
-    Cte, cyte, cute = build_frame(enc, 'test')
     cat_cols = ['dow'] + CAT_FIELDS
     order_ctr = np.argsort(cutr, kind='stable')
     order_cva = np.argsort(cuva, kind='stable')
@@ -147,7 +136,6 @@ def main():
                      group_weight=row_w_ctr, cat_features=cat_cols)
     cb_valid = Pool(Cva.iloc[order_cva], label=cyva[order_cva], group_id=group_cva, cat_features=cat_cols)
     cb_valid_full = Pool(Cva, cat_features=cat_cols)
-    cb_test_full = Pool(Cte, cat_features=cat_cols)
     run_params_c = dict(CB_PARAMS, loss_function='YetiRank', eval_metric='NDCG:top=5',
                          iterations=400, random_seed=a.seed, verbose=False,
                          early_stopping_rounds=20, thread_count=-1)
@@ -156,55 +144,28 @@ def main():
     cb_model.fit(cb_train, eval_set=cb_valid, use_best_model=True)
     print(f"  trained {cb_model.get_best_iteration()} rounds in {time.time()-t0:.1f}s")
     cb_va = cb_model.predict(cb_valid_full)
-    cb_te = cb_model.predict(cb_test_full)
 
     # ---------------- blend (orchestrator iteration 10's weights) ----------------
     print(f"\n=== blending {BLEND_WEIGHTS} ===")
     blend_va = (BLEND_WEIGHTS['lgb'] * norm(lgb_va) + BLEND_WEIGHTS['xgb'] * norm(xgb_va) +
                 BLEND_WEIGHTS['catboost'] * norm(cb_va))
-    blend_te = (BLEND_WEIGHTS['lgb'] * norm(lgb_te) + BLEND_WEIGHTS['xgb'] * norm(xgb_te) +
-                BLEND_WEIGHTS['catboost'] * norm(cb_te))
 
     valid_metrics = evaluate(uva, yva, blend_va)
-    test_metrics = evaluate(ute, yte, blend_te)   # one-time, reporting-only test evaluation
     print(f"\nvalid: GAUC {valid_metrics['GAUC']:.4f} nDCG@5 {valid_metrics['nDCG@5']:.4f} "
           f"primary {valid_metrics['primary']:.4f} (orchestrator run reported {ORCHESTRATOR_VALID_PRIMARY:.4f})")
-    print(f"test:  GAUC {test_metrics['GAUC']:.4f} nDCG@5 {test_metrics['nDCG@5']:.4f} "
-          f"primary {test_metrics['primary']:.4f}")
-    print(f"test delta vs official baseline: GAUC {test_metrics['GAUC']-BASELINE_TEST['GAUC']:+.4f} "
-          f"nDCG@5 {test_metrics['nDCG@5']-BASELINE_TEST['nDCG@5']:+.4f} "
-          f"primary {test_metrics['primary']-BASELINE_TEST['primary']:+.4f}")
-
-    # ---------------- write submission.csv (row order per the OFFICIAL loader) ----------------
-    official_splits = official_load(a.data_dir)
-    test_rows = official_splits['test']
-    # row-for-row alignment check: the official loader's row order must match our
-    # causal-feature loader's row order exactly (both read the same 2 files in the
-    # same order, filtered by the same date ranges) — required since row_id in the
-    # submission format is positional against starter_kit.data.load()['test'].
-    assert len(test_rows) == len(ute), \
-        f"row count mismatch: official={len(test_rows)} causal={len(ute)}"
-    assert [x[1] for x in test_rows] == ute, "row order mismatch: official loader vs causal-feature loader (users)"
-    print(f"\nrow-order alignment check passed: {len(test_rows):,} test rows, user_id sequences match")
-
-    with open(a.out_csv, 'w', newline='') as fh:
-        w = csv.writer(fh)
-        w.writerow(['row_id', 'user_id', 'video_id', 'score'])
-        for i, (x, s) in enumerate(zip(test_rows, blend_te)):
-            w.writerow([i, x[1], x[2], f"{float(s):.6g}"])
-    print(f"wrote {a.out_csv} ({len(test_rows):,} rows)")
+    print("\nNo submission CSV was written and the test split was never loaded — "
+          "generating the scored submission is a separate, explicitly-requested step.")
 
     np.save(os.path.join(a.out_dir, 'final_valid_scores.npy'), blend_va)
     np.save(os.path.join(a.out_dir, 'final_valid_users.npy'), np.array(uva, dtype=object))
     np.save(os.path.join(a.out_dir, 'final_valid_labels.npy'), yva)
     with open('logs/final_submission_summary.json', 'w') as fh:
         json.dump({
-            'baseline_valid': BASELINE_VALID, 'baseline_test': BASELINE_TEST,
+            'baseline_valid': BASELINE_VALID,
             'orchestrator_valid_primary': ORCHESTRATOR_VALID_PRIMARY,
             'lgb_params': LGB_PARAMS, 'xgb_params': XGB_PARAMS, 'catboost_params': CB_PARAMS,
             'blend_weights': BLEND_WEIGHTS,
-            'valid_metrics': valid_metrics, 'test_metrics': test_metrics,
-            'test_delta_vs_baseline': {k: test_metrics[k] - BASELINE_TEST[k] for k in ('GAUC', 'nDCG@5', 'primary')},
+            'valid_metrics': valid_metrics,
         }, fh, indent=2, default=float)
     print("logged to logs/final_submission_summary.json")
 
