@@ -22,11 +22,11 @@ This solution has two layers:
    unattended, 14-iteration, 504.8-second run that reached a validation primary of 0.6350
    (+0.0334 over baseline), with zero manual interventions during execution and zero errors.
 
-2. **`experiments/final_submission.py`** retrains that run's winning configuration and
-   confirms the validation score. It does not touch the hidden test split — generating the
-   actual scored submission CSV is a separate, explicitly-requested one-time step, not run
-   as a default part of "produce the deliverables" (this repo treats hidden-test contact as
-   something that must be asked for directly, every time, not inferred).
+2. **`experiments/score_hidden_test.py`** — the one explicit, clearly-labeled, one-time step
+   that retrains that run's winning configuration and scores hidden test exactly once,
+   producing `submission_pure.csv` (primary +0.0327 over baseline). It is never called by
+   any other script; hidden-test contact in this repo happens only on direct, in-the-moment
+   request, never inferred from "produce the deliverables."
 
 The proposers' search spaces were shaped by an earlier, broader research phase (feature
 engineering, loss-function comparisons, five neural-architecture variants) that touched
