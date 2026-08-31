@@ -1,0 +1,102 @@
+{
+  "baseline_valid": {
+    "GAUC": 0.6671,
+    "nDCG@5": 0.5358,
+    "primary": 0.6015
+  },
+  "lgb_causal_only_bagged": 0.6264,
+  "params": {
+    "learning_rate": 0.2,
+    "num_leaves": 63,
+    "min_data_in_leaf": 50,
+    "feature_fraction": 0.6,
+    "bagging_fraction": 0.6,
+    "lambda_l1": 1.0,
+    "lambda_l2": 0.0,
+    "max_depth": 5,
+    "min_gain_to_split": 0.01
+  },
+  "results": [
+    {
+      "seed": 0,
+      "valid": {
+        "GAUC": 0.6939976215362549,
+        "nDCG@5": 0.5499951243400574,
+        "primary": 0.6219964027404785,
+        "users": 22377,
+        "rows": 124909
+      },
+      "best_iteration": 127
+    },
+    {
+      "seed": 1,
+      "valid": {
+        "GAUC": 0.6965891718864441,
+        "nDCG@5": 0.5510037541389465,
+        "primary": 0.6237964630126953,
+        "users": 22377,
+        "rows": 124909
+      },
+      "best_iteration": 191
+    },
+    {
+      "seed": 2,
+      "valid": {
+        "GAUC": 0.6945391297340393,
+        "nDCG@5": 0.5499114394187927,
+        "primary": 0.622225284576416,
+        "users": 22377,
+        "rows": 124909
+      },
+      "best_iteration": 108
+    },
+    {
+      "seed": 3,
+      "valid": {
+        "GAUC": 0.6970987915992737,
+        "nDCG@5": 0.5508077144622803,
+        "primary": 0.6239532232284546,
+        "users": 22377,
+        "rows": 124909
+      },
+      "best_iteration": 104
+    },
+    {
+      "seed": 4,
+      "valid": {
+        "GAUC": 0.6948494911193848,
+        "nDCG@5": 0.5501665472984314,
+        "primary": 0.6225080490112305,
+        "users": 22377,
+        "rows": 124909
+      },
+      "best_iteration": 153
+    }
+  ],
+  "mean_primary": 0.6228958964347839,
+  "std_primary": 0.0008170917863026261,
+  "bagged_valid": {
+    "GAUC": 0.6972790956497192,
+    "nDCG@5": 0.5512533187866211,
+    "primary": 0.6242662072181702,
+    "users": 22377,
+    "rows": 124909
+  },
+  "top_feature_importance": {
+    "author_id": 21940.30287271738,
+    "tab": 20151.017565965652,
+    "user_rate": 13708.099535524845,
+    "video_rate": 6145.994493870996,
+    "user_tab_rate": 5376.241576015949,
+    "author_rate": 3353.495970786549,
+    "user_count": 3234.4706855434924,
+    "user_tab_count": 2903.488447714597,
+    "video_recent_rate": 2130.9701186567545,
+    "user_since_ms": 1878.0746274068952,
+    "author_since_ms": 1625.7117774412036,
+    "fm_video_emb_13": 1477.300907254219,
+    "video_since_ms": 1097.7731268443167,
+    "user_today_count": 917.2931697815657,
+    "video_count": 859.8827388882637
+  }
+}

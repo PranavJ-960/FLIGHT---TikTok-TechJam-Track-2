@@ -1,0 +1,26 @@
+{
+  "baseline_valid": {
+    "GAUC": 0.6671,
+    "nDCG@5": 0.5358,
+    "primary": 0.6015
+  },
+  "catboost_untuned": 0.6263,
+  "best": {
+    "params": {
+      "learning_rate": 0.08,
+      "depth": 5,
+      "l2_leaf_reg": 1.0,
+      "subsample": 0.6,
+      "rsm": 0.8,
+      "random_strength": 5.0
+    },
+    "valid": {
+      "GAUC": 0.7100141048431396,
+      "nDCG@5": 0.5578848719596863,
+      "primary": 0.6339495182037354,
+      "users": 22377,
+      "rows": 124909
+    },
+    "best_iteration": 331
+  }
+}

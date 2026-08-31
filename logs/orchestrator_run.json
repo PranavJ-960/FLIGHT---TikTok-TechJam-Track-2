@@ -1,0 +1,96 @@
+{
+  "config": {
+    "data_dir": "./data/KuaiRand-Pure/data",
+    "wall_clock_budget_s": 1800.0,
+    "max_iterations": 50,
+    "epsilon": 0.002,
+    "patience": 3,
+    "seed": 4,
+    "out_dir": "outputs"
+  },
+  "baseline_valid_primary": 0.6015,
+  "history": [
+    {
+      "iteration": 0,
+      "proposer": "lgb",
+      "hypothesis": "LightGBM trial: {'learning_rate': 0.16, 'num_leaves': 400, 'min_data_in_leaf': 150, 'feature_fraction': 0.8, 'bagging_fraction': 1.0, 'lambda_l1': 1.0, 'lambda_l2': 10.0, 'max_depth': -1, 'min_gain_to_split': 0.01}",
+      "status": "ok",
+      "seconds": 8.7,
+      "valid": {
+        "GAUC": 0.6953802108764648,
+        "nDCG@5": 0.5504471063613892,
+        "primary": 0.622913658618927
+      }
+    },
+    {
+      "iteration": 1,
+      "proposer": "xgb",
+      "hypothesis": "XGBoost trial: {'eta': 0.05, 'max_depth': 5, 'min_child_weight': 50, 'subsample': 1.0, 'colsample_bytree': 0.8, 'lambda': 0.0, 'alpha': 1.0, 'gamma': 1.0}",
+      "status": "ok",
+      "seconds": 22.4,
+      "valid": {
+        "GAUC": 0.7043509483337402,
+        "nDCG@5": 0.5562553405761719,
+        "primary": 0.630303144454956
+      }
+    },
+    {
+      "iteration": 2,
+      "proposer": "feature_variant",
+      "hypothesis": "feature variant smooth=5.0 recent_window=40",
+      "status": "ok",
+      "seconds": 13.5,
+      "valid": {
+        "GAUC": 0.6997455358505249,
+        "nDCG@5": 0.5531620979309082,
+        "primary": 0.6264538168907166
+      }
+    },
+    {
+      "iteration": 3,
+      "proposer": "catboost",
+      "hypothesis": "CatBoost trial: {'learning_rate': 0.05, 'depth': 8, 'l2_leaf_reg': 1.0, 'subsample': 0.8, 'rsm': 1.0, 'random_strength': 1.0}",
+      "status": "ok",
+      "seconds": 121.5,
+      "valid": {
+        "GAUC": 0.7064277529716492,
+        "nDCG@5": 0.5556896328926086,
+        "primary": 0.6310586929321289
+      }
+    },
+    {
+      "iteration": 4,
+      "proposer": "blend",
+      "hypothesis": "blend of ['lgb', 'xgb', 'catboost']",
+      "status": "ok",
+      "seconds": 8.2,
+      "valid": {
+        "GAUC": 0.7079082131385803,
+        "nDCG@5": 0.5571112632751465,
+        "primary": 0.632509708404541
+      }
+    }
+  ],
+  "stop_reason": "converged",
+  "iterations_run": 5,
+  "wall_clock_s": 182.1,
+  "best_primary": 0.632509708404541,
+  "best_entry": {
+    "iteration": 4,
+    "proposer": "blend",
+    "hypothesis": "blend of ['lgb', 'xgb', 'catboost']",
+    "status": "ok",
+    "seconds": 8.2,
+    "valid": {
+      "GAUC": 0.7079082131385803,
+      "nDCG@5": 0.5571112632751465,
+      "primary": 0.632509708404541
+    },
+    "family": "blend",
+    "params": {
+      "lgb": 0.2,
+      "xgb": 0.4,
+      "catboost": 0.4
+    }
+  }
+}

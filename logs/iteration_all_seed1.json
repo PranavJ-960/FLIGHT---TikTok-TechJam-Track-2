@@ -1,0 +1,74 @@
+{
+  "baseline_valid": {
+    "GAUC": 0.6671,
+    "nDCG@5": 0.5358,
+    "primary": 0.6015
+  },
+  "config": {
+    "k": 16,
+    "lr": 0.001,
+    "epochs": 40,
+    "seed": 1
+  },
+  "hypotheses": {
+    "A": "Pairwise (BPR) loss on long_view directly optimizes within-user ranking, matching GAUC/nDCG@5, instead of pointwise logloss which optimizes calibration.",
+    "B": "Auxiliary tasks (is_click/is_like/is_follow) sharing the embedding table give denser gradient signal than the sparse long_view label alone, regularizing V.",
+    "C": "Effects of A and B are additive: pairwise ranking loss on long_view's head, auxiliary pointwise losses on shared embeddings, both feeding the same V."
+  },
+  "results": {
+    "A": {
+      "valid": {
+        "GAUC": 0.6666175723075867,
+        "nDCG@5": 0.5355952978134155,
+        "primary": 0.6011064052581787,
+        "users": 22377,
+        "rows": 124909
+      },
+      "test": {
+        "GAUC": 0.6613902449607849,
+        "nDCG@5": 0.5285310745239258,
+        "primary": 0.5949606895446777,
+        "users": 23875,
+        "rows": 170588
+      },
+      "epochs_run": 7,
+      "wall_time_s": 15.3
+    },
+    "B": {
+      "valid": {
+        "GAUC": 0.6680959463119507,
+        "nDCG@5": 0.5363466143608093,
+        "primary": 0.6022212505340576,
+        "users": 22377,
+        "rows": 124909
+      },
+      "test": {
+        "GAUC": 0.661789059638977,
+        "nDCG@5": 0.5293273329734802,
+        "primary": 0.5955581665039062,
+        "users": 23875,
+        "rows": 170588
+      },
+      "epochs_run": 11,
+      "wall_time_s": 40.0
+    },
+    "C": {
+      "valid": {
+        "GAUC": 0.6630048155784607,
+        "nDCG@5": 0.533486008644104,
+        "primary": 0.59824538230896,
+        "users": 22377,
+        "rows": 124909
+      },
+      "test": {
+        "GAUC": 0.6577181220054626,
+        "nDCG@5": 0.5266219973564148,
+        "primary": 0.5921700596809387,
+        "users": 23875,
+        "rows": 170588
+      },
+      "epochs_run": 6,
+      "wall_time_s": 31.3
+    }
+  }
+}

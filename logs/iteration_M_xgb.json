@@ -1,0 +1,50 @@
+{
+  "baseline_valid": {
+    "GAUC": 0.6671,
+    "nDCG@5": 0.5358,
+    "primary": 0.6015
+  },
+  "lgb_best": 0.6272,
+  "params": {
+    "objective": "rank:ndcg",
+    "eval_metric": "ndcg@5",
+    "eta": 0.1,
+    "max_depth": 6,
+    "min_child_weight": 20,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "lambda": 1.0,
+    "seed": 0,
+    "verbosity": 0
+  },
+  "best_iteration": 364,
+  "valid": {
+    "GAUC": 0.6966641545295715,
+    "nDCG@5": 0.5518807172775269,
+    "primary": 0.6242724657058716,
+    "users": 22377,
+    "rows": 124909
+  },
+  "feature_importance_gain": {
+    "user_rate": 14.953063011169434,
+    "video_rate": 23.52560043334961,
+    "author_rate": 11.03384780883789,
+    "user_tab_rate": 8.077815055847168,
+    "user_tab_count": 6.406447410583496,
+    "user_count": 4.578132629394531,
+    "video_count": 2.0635874271392822,
+    "author_count": 1.9601716995239258,
+    "user_since_ms": 3.118112087249756,
+    "video_since_ms": 3.180280923843384,
+    "author_since_ms": 3.0295445919036865,
+    "user_today_count": 3.4550960063934326,
+    "video_recent_rate": 4.815667629241943,
+    "video_trend": 1.711163878440857,
+    "duration_ms": 4.256237983703613,
+    "hour": 2.000159502029419,
+    "dow": 2.478666305541992,
+    "author_id": 1.8797050714492798,
+    "tab": 24.218799591064453,
+    "dur_bucket": 3.525106430053711
+  }
+}

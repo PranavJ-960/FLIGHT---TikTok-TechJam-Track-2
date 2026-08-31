@@ -1,0 +1,28 @@
+{
+  "baseline_valid": {
+    "GAUC": 0.6671,
+    "nDCG@5": 0.5358,
+    "primary": 0.6015
+  },
+  "xgb_untuned": 0.6243,
+  "best": {
+    "params": {
+      "eta": 0.2,
+      "max_depth": 4,
+      "min_child_weight": 100,
+      "subsample": 0.7,
+      "colsample_bytree": 0.8,
+      "lambda": 5.0,
+      "alpha": 1.0,
+      "gamma": 1.0
+    },
+    "valid": {
+      "GAUC": 0.7077390551567078,
+      "nDCG@5": 0.5593959093093872,
+      "primary": 0.6335674524307251,
+      "users": 22377,
+      "rows": 124909
+    },
+    "best_iteration": 308
+  }
+}

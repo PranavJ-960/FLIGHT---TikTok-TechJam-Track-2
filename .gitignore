@@ -8,10 +8,15 @@ venv/
 data/*.csv
 data/*.tar.gz
 data/KuaiRand-Pure/
+data/KuaiRand-1K/
+data/KuaiRand-27K/
 
-# Generated run artifacts
+# Generated run artifacts (large binary prediction dumps / CatBoost's own training logs --
+# logs/*.json summaries are the human-readable record and are committed)
 logs/*.jsonl
 outputs/*.json
+outputs/*.npy
+catboost_info/
 
 # IDE
 .vscode/

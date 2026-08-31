@@ -1,0 +1,39 @@
+{
+  "baseline_valid": {
+    "GAUC": 0.6671,
+    "nDCG@5": 0.5358,
+    "primary": 0.6015
+  },
+  "config": {
+    "k": 16,
+    "lr": 0.001,
+    "epochs": 40,
+    "seed": 2
+  },
+  "hypotheses": {
+    "A": "Pairwise (BPR) loss on long_view directly optimizes within-user ranking, matching GAUC/nDCG@5, instead of pointwise logloss which optimizes calibration.",
+    "B": "Auxiliary tasks (is_click/is_like/is_follow) sharing the embedding table give denser gradient signal than the sparse long_view label alone, regularizing V.",
+    "C": "Effects of A and B are additive: pairwise ranking loss on long_view's head, auxiliary pointwise losses on shared embeddings, both feeding the same V.",
+    "D": "A/B/C only change how the same user_id x video_id embedding is trained; attention over a user's actual watch history (DIN-style) gives the model genuinely new information the FM baseline has zero access to."
+  },
+  "results": {
+    "D": {
+      "valid": {
+        "GAUC": 0.6676070094108582,
+        "nDCG@5": 0.5361745953559875,
+        "primary": 0.6018908023834229,
+        "users": 22377,
+        "rows": 124909
+      },
+      "test": {
+        "GAUC": 0.6610114574432373,
+        "nDCG@5": 0.5280987620353699,
+        "primary": 0.594555139541626,
+        "users": 23875,
+        "rows": 170588
+      },
+      "epochs_run": 9,
+      "wall_time_s": 157.3
+    }
+  }
+}
