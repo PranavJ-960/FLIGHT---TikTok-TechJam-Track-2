@@ -5,13 +5,13 @@
     "primary": 0.6015
   },
   "best_params": {
-    "learning_rate": 0.05,
-    "num_leaves": 31,
-    "min_data_in_leaf": 20,
+    "learning_rate": 0.12,
+    "num_leaves": 255,
+    "min_data_in_leaf": 100,
     "feature_fraction": 0.5,
-    "bagging_fraction": 1.0,
-    "lambda_l1": 0.1,
-    "lambda_l2": 1.0,
+    "bagging_fraction": 0.8,
+    "lambda_l1": 0.0,
+    "lambda_l2": 10.0,
     "max_depth": 5,
     "min_gain_to_split": 0.01
   },
@@ -19,65 +19,65 @@
     {
       "seed": 0,
       "valid": {
-        "GAUC": 0.7003827691078186,
-        "nDCG@5": 0.5533486604690552,
-        "primary": 0.6268657445907593,
+        "GAUC": 0.7030055522918701,
+        "nDCG@5": 0.5555410981178284,
+        "primary": 0.6292732954025269,
         "users": 22377,
         "rows": 124909
       },
-      "best_iteration": 263
+      "best_iteration": 312
     },
     {
       "seed": 1,
       "valid": {
-        "GAUC": 0.7039321660995483,
-        "nDCG@5": 0.555617094039917,
-        "primary": 0.6297746300697327,
+        "GAUC": 0.7038543820381165,
+        "nDCG@5": 0.5558241605758667,
+        "primary": 0.629839301109314,
         "users": 22377,
         "rows": 124909
       },
-      "best_iteration": 495
+      "best_iteration": 322
     },
     {
       "seed": 2,
       "valid": {
-        "GAUC": 0.7037720680236816,
-        "nDCG@5": 0.5552691221237183,
-        "primary": 0.6295205950737,
+        "GAUC": 0.7018604874610901,
+        "nDCG@5": 0.5555433630943298,
+        "primary": 0.62870192527771,
         "users": 22377,
         "rows": 124909
       },
-      "best_iteration": 470
+      "best_iteration": 266
     },
     {
       "seed": 3,
       "valid": {
-        "GAUC": 0.7046230435371399,
-        "nDCG@5": 0.5554059743881226,
-        "primary": 0.6300145387649536,
+        "GAUC": 0.7026250958442688,
+        "nDCG@5": 0.5557090640068054,
+        "primary": 0.6291670799255371,
         "users": 22377,
         "rows": 124909
       },
-      "best_iteration": 460
+      "best_iteration": 310
     },
     {
       "seed": 4,
       "valid": {
-        "GAUC": 0.7043652534484863,
-        "nDCG@5": 0.555427074432373,
-        "primary": 0.6298961639404297,
+        "GAUC": 0.7036092877388,
+        "nDCG@5": 0.5558875799179077,
+        "primary": 0.6297484636306763,
         "users": 22377,
         "rows": 124909
       },
-      "best_iteration": 413
+      "best_iteration": 298
     }
   ],
-  "mean_primary": 0.6292144060134888,
-  "std_primary": 0.0011856491910293698,
+  "mean_primary": 0.6293460130691528,
+  "std_primary": 0.0004141143581364304,
   "bagged_valid": {
-    "GAUC": 0.703755795955658,
-    "nDCG@5": 0.5551649332046509,
-    "primary": 0.629460334777832,
+    "GAUC": 0.7031501531600952,
+    "nDCG@5": 0.556114137172699,
+    "primary": 0.6296321153640747,
     "users": 22377,
     "rows": 124909
   }

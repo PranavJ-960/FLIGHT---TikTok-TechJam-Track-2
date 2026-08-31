@@ -1,0 +1,32 @@
+{
+  "baseline_valid": {
+    "GAUC": 0.6671,
+    "nDCG@5": 0.5358,
+    "primary": 0.6015
+  },
+  "dcn_best": 0.6206,
+  "blend_best": 0.6348,
+  "config": {
+    "data_dir": "./data/KuaiRand-Pure/data",
+    "emb_dim": 16,
+    "n_experts": 4,
+    "expert_dims": "64,32",
+    "tower_dims": "16",
+    "aux_weight": 0.2,
+    "dropout": 0.2,
+    "lr": 0.001,
+    "l2": 1e-06,
+    "bs": 8192,
+    "epochs": 40,
+    "patience": 5,
+    "seed": 0,
+    "out_dir": "outputs"
+  },
+  "valid": {
+    "GAUC": 0.6757411956787109,
+    "nDCG@5": 0.5402319431304932,
+    "primary": 0.607986569404602,
+    "users": 22377,
+    "rows": 124909
+  }
+}

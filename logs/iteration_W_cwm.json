@@ -1,0 +1,40 @@
+{
+  "baseline_valid": {
+    "GAUC": 0.6671,
+    "nDCG@5": 0.5358,
+    "primary": 0.6015
+  },
+  "lgb_ranker_best": 0.6306,
+  "linear_blend_best": 0.6359,
+  "censored_frac_train": 0.16979665449140838,
+  "cwm_valid": {
+    "GAUC": 0.5939246416091919,
+    "nDCG@5": 0.5032494068145752,
+    "primary": 0.5485870242118835,
+    "users": 22377,
+    "rows": 124909
+  },
+  "best_iteration": 301,
+  "feature_importance_gain": {
+    "duration_ms": 79105.10857561603,
+    "user_tab_rate": 41850.1391149573,
+    "tab": 38105.506923899055,
+    "user_rate": 17382.051343247294,
+    "author_id": 16656.607807181776,
+    "dur_bucket": 10570.870918639004,
+    "video_rate": 9925.582785191014,
+    "author_rate": 4152.13095445279,
+    "user_tab_count": 2707.8013901896775,
+    "user_since_ms": 2372.1246264725924,
+    "user_count": 1623.1651754248887,
+    "video_recent_rate": 1441.9209906514734,
+    "user_today_count": 1179.0926895616576,
+    "video_count": 398.6255089491606,
+    "dow": 393.5002445038408,
+    "author_since_ms": 360.57601585797966,
+    "hour": 314.1489580348134,
+    "author_count": 312.7860938310623,
+    "video_since_ms": 260.14387733489275,
+    "video_trend": 217.06705676950514
+  }
+}

@@ -61,8 +61,9 @@ def main():
 
     params = {
         'objective': 'rank:ndcg', 'eval_metric': 'ndcg@5',
-        'eta': 0.1, 'max_depth': 6, 'min_child_weight': 20,
-        'subsample': 0.8, 'colsample_bytree': 0.8, 'lambda': 1.0,
+        'eta': 0.2, 'max_depth': 4, 'min_child_weight': 100,
+        'subsample': 0.7, 'colsample_bytree': 0.8, 'lambda': 5.0,
+        'alpha': 1.0, 'gamma': 1.0,
         'seed': a.seed, 'verbosity': 0,
     }
     print("\n=== iteration M: XGBoost rank:ndcg ===")

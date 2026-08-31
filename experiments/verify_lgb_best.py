@@ -16,9 +16,9 @@ from starter_kit.evaluate import evaluate
 from experiments.data_causal import encode_causal, CAT_FIELDS
 
 BASELINE_VALID = {'GAUC': 0.6671, 'nDCG@5': 0.5358, 'primary': 0.6015}
-BEST_PARAMS = {'learning_rate': 0.05, 'num_leaves': 31, 'min_data_in_leaf': 20,
-               'feature_fraction': 0.5, 'bagging_fraction': 1.0, 'lambda_l1': 0.1,
-               'lambda_l2': 1.0, 'max_depth': 5, 'min_gain_to_split': 0.01}
+BEST_PARAMS = {'learning_rate': 0.12, 'num_leaves': 255, 'min_data_in_leaf': 100,
+               'feature_fraction': 0.5, 'bagging_fraction': 0.8, 'lambda_l1': 0.0,
+               'lambda_l2': 10.0, 'max_depth': 5, 'min_gain_to_split': 0.01}
 
 
 def build_matrix(enc, split):

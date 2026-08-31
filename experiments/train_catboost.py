@@ -62,7 +62,8 @@ def main():
 
     params = {
         'loss_function': 'YetiRank', 'eval_metric': 'NDCG:top=5',
-        'learning_rate': 0.1, 'depth': 6, 'l2_leaf_reg': 3.0,
+        'learning_rate': 0.08, 'depth': 5, 'l2_leaf_reg': 1.0,
+        'subsample': 0.6, 'rsm': 0.8, 'random_strength': 5.0,
         'iterations': 1000, 'random_seed': a.seed, 'verbose': False,
         'early_stopping_rounds': 30, 'thread_count': -1,
     }

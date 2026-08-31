@@ -1,0 +1,66 @@
+{
+  "baseline_valid": {
+    "GAUC": 0.6674,
+    "nDCG@5": 0.5357,
+    "primary": 0.6016
+  },
+  "baseline_test": {
+    "GAUC": 0.661,
+    "nDCG@5": 0.5282,
+    "primary": 0.5946
+  },
+  "orchestrator_valid_primary": 0.6349,
+  "lgb_params": {
+    "learning_rate": 0.12,
+    "num_leaves": 127,
+    "min_data_in_leaf": 100,
+    "feature_fraction": 0.7,
+    "bagging_fraction": 0.9,
+    "lambda_l1": 0.1,
+    "lambda_l2": 5.0,
+    "max_depth": 10,
+    "min_gain_to_split": 0.1
+  },
+  "xgb_params": {
+    "eta": 0.15,
+    "max_depth": 4,
+    "min_child_weight": 20,
+    "subsample": 1.0,
+    "colsample_bytree": 0.5,
+    "lambda": 0.1,
+    "alpha": 0.1,
+    "gamma": 1.0
+  },
+  "catboost_params": {
+    "learning_rate": 0.15,
+    "depth": 7,
+    "l2_leaf_reg": 10.0,
+    "subsample": 0.8,
+    "rsm": 1.0,
+    "random_strength": 0.0
+  },
+  "blend_weights": {
+    "lgb": 0.2,
+    "xgb": 0.5,
+    "catboost": 0.3
+  },
+  "valid_metrics": {
+    "GAUC": 0.7103116512298584,
+    "nDCG@5": 0.5596444010734558,
+    "primary": 0.6349780559539795,
+    "users": 22377,
+    "rows": 124909
+  },
+  "test_metrics": {
+    "GAUC": 0.6982195377349854,
+    "nDCG@5": 0.5563459992408752,
+    "primary": 0.6272827386856079,
+    "users": 23875,
+    "rows": 170588
+  },
+  "test_delta_vs_baseline": {
+    "GAUC": 0.03721952438354492,
+    "nDCG@5": 0.028146028518676758,
+    "primary": 0.032682716846466064
+  }
+}
