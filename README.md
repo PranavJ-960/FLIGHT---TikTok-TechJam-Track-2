@@ -206,7 +206,7 @@ the orchestrator itself), not of the scored run itself, which used 0.
 
 ## Team
 
-Solo entry. All code, feature engineering, model/architecture decisions, and the autonomous
+All code, feature engineering, model/architecture decisions, and the autonomous
 orchestrator were developed interactively with Claude Code (Anthropic) as the coding agent —
 see [`PROJECT_DESCRIPTION.md`](PROJECT_DESCRIPTION.md) for the full development-tools breakdown.
 
