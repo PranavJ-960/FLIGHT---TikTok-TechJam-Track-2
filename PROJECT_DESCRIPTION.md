@@ -26,7 +26,7 @@ One such run — 14 iterations, 504.8 seconds, zero manual interventions, zero e
 LightGBM + XGBoost + CatBoost blend that beats the baseline by +0.0334 primary on validation.
 A separate, explicitly-gated script then scores that exact configuration on hidden test
 exactly once: **+0.0327 primary (GAUC +0.0372, nDCG@5 +0.0281), independently re-verified
-against the official scoring script** — a +33% relative improvement over baseline.
+against the official scoring script** — a +5.5% relative improvement over baseline.
 
 ## How we built it
 
@@ -79,7 +79,7 @@ Three layers, built in order:
 - **A genuinely autonomous run that matches extensive manual research**, not just a demo:
   14 iterations, under 9 minutes, zero human intervention during execution, landing within
   noise of the deepest hand-tuned result found across the whole project.
-- **A +33% relative improvement on hidden test, checked twice** — once by our own evaluation
+- **A +5.5% relative improvement on hidden test, checked twice** — once by our own evaluation
   code, once independently by the organizers' own unmodified `submit.py --score`, with a
   row-order alignment assertion so the submission CSV can't silently misalign.
 - **Nine honestly-reported negative results.** Every neural-net architecture and
